@@ -22,18 +22,14 @@
                 <label>남은 타일:</label>
                 <div id="remainingTiles" class="stat">20</div>
             </div>
-            <div class="info-card">
-                <label>현재 점수:</label>
-                <div id="currentScore" class="stat">0</div>
+            <div class="info-card" id="currentTurnCard" style="display: none;">
+                <label>현재 차례:</label>
+                <div id="currentTurn" class="stat">-</div>
             </div>
         </div>
 
-        <div class="game-board">
-            <h3>내 시트지 (20칸)</h3>
-            <div id="worksheet" class="worksheet">
-                <!-- 20개의 칸이 JavaScript로 생성됩니다 -->
-            </div>
-            <div class="stream-display" id="streamDisplay"></div>
+        <div id="playersContainer">
+            <!-- 플레이어들의 시트지가 여기에 동적으로 생성됩니다 -->
         </div>
 
         <div class="controls">
@@ -51,6 +47,7 @@
                 <li>⭐ 조커 타일은 와일드카드로, 항상 오름차순을 유지하며 스트림을 이어줍니다</li>
                 <li>20칸을 모두 채워야 게임이 종료됩니다</li>
                 <li>각 스트림의 길이에 따라 점수가 계산됩니다 (길수록 높은 점수!)</li>
+                <li><strong>멀티플레이</strong>: 같은 타일이 공개되면 각 플레이어가 순서대로 자신의 시트지에 배치합니다</li>
             </ul>
         </div>
 
@@ -81,6 +78,19 @@
                 </tr>
             </table>
             <p class="formula">점수 = n × (n + 1) / 2 (n: 스트림 길이)</p>
+        </div>
+    </div>
+
+    <div id="setupModal" class="modal show">
+        <div class="modal-content">
+            <h2>🎮 게임 설정</h2>
+            <p>플레이어 수를 선택하세요:</p>
+            <div class="player-selection">
+                <button class="player-btn" data-players="1">1인 (솔로)</button>
+                <button class="player-btn" data-players="2">2인</button>
+                <button class="player-btn" data-players="3">3인</button>
+                <button class="player-btn" data-players="4">4인</button>
+            </div>
         </div>
     </div>
 

@@ -334,6 +334,98 @@ header h1 {
     border-radius: 10px;
 }
 
+/* 멀티플레이어 스타일 */
+.player-selection {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.player-btn {
+    padding: 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: 3px solid #667eea;
+    border-radius: 10px;
+    background: white;
+    color: #667eea;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.player-btn:hover {
+    background: #667eea;
+    color: white;
+    transform: scale(1.05);
+}
+
+#playersContainer {
+    margin-bottom: 30px;
+}
+
+.player-board {
+    margin-bottom: 30px;
+    padding: 20px;
+    border-radius: 15px;
+    background: #f8f9fa;
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.player-board.active {
+    border-color: #667eea;
+    background: #e8eaf6;
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+.player-board.completed {
+    opacity: 0.7;
+}
+
+.player-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #ddd;
+}
+
+.player-name {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.player-score {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #764ba2;
+}
+
+.player-status {
+    font-size: 0.9em;
+    color: #666;
+    margin-left: 10px;
+}
+
+.winner-badge {
+    display: inline-block;
+    padding: 5px 15px;
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+    color: #333;
+    border-radius: 20px;
+    font-weight: bold;
+    margin-left: 10px;
+    animation: shine 2s infinite;
+}
+
+@keyframes shine {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 20px;
@@ -357,5 +449,14 @@ header h1 {
 
     .btn {
         width: 100%;
+    }
+
+    .player-selection {
+        grid-template-columns: 1fr;
+    }
+
+    .player-header {
+        flex-direction: column;
+        gap: 10px;
     }
 }
