@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스트림스 보드게임</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎲 스트림스 (Streams)</h1>
+            <p class="subtitle">숫자를 오름차순으로 배치하여 최고 점수를 획득하세요!</p>
+        </header>
+
+        <div class="game-info">
+            <div class="info-card">
+                <label>현재 타일:</label>
+                <div id="currentTile" class="current-tile">-</div>
+            </div>
+            <div class="info-card">
+                <label>남은 타일:</label>
+                <div id="remainingTiles" class="stat">20</div>
+            </div>
+            <div class="info-card">
+                <label>현재 점수:</label>
+                <div id="currentScore" class="stat">0</div>
+            </div>
+        </div>
+
+        <div class="game-board">
+            <h3>내 시트지 (20칸)</h3>
+            <div id="worksheet" class="worksheet">
+                <!-- 20개의 칸이 JavaScript로 생성됩니다 -->
+            </div>
+            <div class="stream-display" id="streamDisplay"></div>
+        </div>
+
+        <div class="controls">
+            <button id="drawTileBtn" class="btn btn-primary">타일 뽑기</button>
+            <button id="resetGameBtn" class="btn btn-secondary">게임 재시작</button>
+        </div>
+
+        <div class="rules">
+            <h3>게임 규칙</h3>
+            <ul>
+                <li>타일을 뽑으면 나온 숫자를 20칸 중 원하는 곳에 배치합니다</li>
+                <li>왼쪽에서 오른쪽으로 읽을 때 <strong>오름차순</strong>이어야 합니다</li>
+                <li>같은 숫자가 연속되어도 오름차순으로 인정됩니다</li>
+                <li>오름차순이 깨지면 새로운 스트림(덩어리)이 시작됩니다</li>
+                <li>⭐ 조커 타일은 원하는 숫자로 사용할 수 있습니다</li>
+                <li>20칸을 모두 채워야 게임이 종료됩니다</li>
+                <li>각 스트림의 길이에 따라 점수가 계산됩니다 (길수록 높은 점수!)</li>
+            </ul>
+        </div>
+
+        <div class="scoring-info">
+            <h3>점수 계산</h3>
+            <table>
+                <tr>
+                    <th>스트림 길이</th>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>3</td>
+                    <td>4</td>
+                    <td>5</td>
+                    <td>6</td>
+                    <td>7</td>
+                    <td>8+</td>
+                </tr>
+                <tr>
+                    <th>점수</th>
+                    <td>1</td>
+                    <td>3</td>
+                    <td>6</td>
+                    <td>10</td>
+                    <td>15</td>
+                    <td>21</td>
+                    <td>28</td>
+                    <td>...</td>
+                </tr>
+            </table>
+            <p class="formula">점수 = n × (n + 1) / 2 (n: 스트림 길이)</p>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2>조커(⭐) 타일</h2>
+            <p>원하는 숫자를 선택하세요 (0-99):</p>
+            <input type="number" id="jokerInput" min="0" max="99" value="50">
+            <div class="modal-buttons">
+                <button id="jokerConfirm" class="btn btn-primary">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <h2>🎉 게임 종료!</h2>
+            <div id="finalScore" class="final-score"></div>
+            <div id="streamBreakdown"></div>
+            <button id="playAgainBtn" class="btn btn-primary">다시 하기</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
