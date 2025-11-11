@@ -11,6 +11,9 @@ class StreamsOnlineGame {
         this.myWorksheet = new Array(20).fill(null);
         this.currentTile = null;
         this.gameStarted = false;
+        this.isSoloMode = false;
+        this.tileBag = [];
+        this.tilesDrawn = 0;
 
         this.init();
     }
@@ -168,6 +171,13 @@ class StreamsOnlineGame {
     }
 
     setupUIListeners() {
+        // 혼자 하기 버튼
+        document.getElementById('soloPlayBtn').addEventListener('click', () => {
+            const playerName = document.getElementById('playerNameInput').value.trim() || '나';
+            this.playerName = playerName;
+            this.startSoloGame();
+        });
+
         // 방 만들기 버튼
         document.getElementById('createRoomBtn').addEventListener('click', () => {
             const playerName = document.getElementById('playerNameInput').value.trim();
@@ -223,9 +233,11 @@ class StreamsOnlineGame {
             }
         });
 
-        // 타일 뽑기 (호스트만)
+        // 타일 뽑기
         document.getElementById('drawTileBtn').addEventListener('click', () => {
-            if (this.isHost) {
+            if (this.isSoloMode) {
+                this.drawTileSolo();
+            } else if (this.isHost) {
                 this.socket.emit('drawTile');
             }
         });
@@ -336,6 +348,13 @@ class StreamsOnlineGame {
     }
 
     placeNumber(index) {
+        // 싱글플레이어 모드
+        if (this.isSoloMode) {
+            this.placeTileSolo(index);
+            return;
+        }
+
+        // 멀티플레이어 모드
         if (!this.currentTile) {
             alert('타일이 뽑히지 않았습니다!');
             return;
@@ -535,6 +554,133 @@ class StreamsOnlineGame {
     showNotification(message) {
         // 간단한 알림 표시 (나중에 토스트로 개선 가능)
         console.log('알림:', message);
+    }
+
+    // 싱글플레이어 모드 메서드들
+    startSoloGame() {
+        this.isSoloMode = true;
+        this.isHost = true;
+        this.playerId = 'solo-player';
+        this.gameStarted = true;
+
+        // 플레이어 설정
+        this.players = [{
+            id: this.playerId,
+            name: this.playerName,
+            worksheet: new Array(20).fill(null),
+            score: 0
+        }];
+
+        // 타일백 생성
+        this.tileBag = this.createTileBag();
+        this.tilesDrawn = 0;
+
+        // 로비 숨기고 게임 화면 표시
+        document.getElementById('lobby').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'block';
+        document.getElementById('gameRoomCode').textContent = '혼자하기 모드';
+
+        this.setupGame();
+        this.showNotification('게임 시작!');
+    }
+
+    createTileBag() {
+        const tiles = [];
+
+        // 0-99 숫자를 각각 2개씩
+        for (let i = 0; i <= 99; i++) {
+            tiles.push(i);
+            tiles.push(i);
+        }
+
+        // 조커(별) 타일 5개 추가
+        for (let i = 0; i < 5; i++) {
+            tiles.push('⭐');
+        }
+
+        // 타일 섞기 (Fisher-Yates shuffle)
+        for (let i = tiles.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+        }
+
+        return tiles;
+    }
+
+    drawTileSolo() {
+        if (this.tilesDrawn >= 20) {
+            this.endGame();
+            return;
+        }
+
+        if (this.tileBag.length === 0) {
+            alert('타일이 모두 소진되었습니다!');
+            return;
+        }
+
+        const tile = this.tileBag.pop();
+        this.currentTile = tile;
+        this.tilesDrawn++;
+
+        document.getElementById('currentTile').textContent = tile === '⭐' ? '⭐' : tile;
+        document.getElementById('remainingTiles').textContent = 21 - this.tilesDrawn;
+        document.getElementById('drawTileBtn').disabled = true;
+
+        this.showNotification(`타일: ${tile}`);
+    }
+
+    placeTileSolo(index) {
+        if (!this.currentTile) {
+            alert('타일이 뽑히지 않았습니다!');
+            return;
+        }
+
+        if (this.myWorksheet[index] !== null) {
+            alert('이미 숫자가 배치된 칸입니다!');
+            return;
+        }
+
+        // 숫자 배치
+        const isJoker = this.currentTile === '⭐';
+        const value = isJoker ? '⭐' : this.currentTile;
+
+        this.myWorksheet[index] = {
+            value: value,
+            isJoker: isJoker
+        };
+
+        // UI 업데이트
+        const cell = document.querySelector(`.cell[data-player-id="${this.playerId}"][data-index="${index}"]`);
+        if (cell) {
+            cell.textContent = value;
+            cell.classList.add('filled', 'highlight');
+
+            if (isJoker) {
+                cell.classList.add('joker');
+            }
+
+            setTimeout(() => cell.classList.remove('highlight'), 500);
+        }
+
+        // 점수 업데이트
+        setTimeout(() => {
+            const streams = this.analyzeStreams(this.playerId);
+            const score = this.calculateTotalScore(streams);
+            const scoreEl = document.getElementById(`score-${this.playerId}`);
+            if (scoreEl) {
+                scoreEl.textContent = `${score}점`;
+            }
+        }, 100);
+
+        // 다음 타일을 위해 준비
+        this.currentTile = null;
+        document.getElementById('currentTile').textContent = '-';
+        document.getElementById('drawTileBtn').disabled = false;
+
+        // 게임 종료 체크
+        if (this.tilesDrawn >= 20) {
+            this.endGame();
+        }
     }
 }
 

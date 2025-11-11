@@ -381,9 +381,15 @@ header h1 {
 
 .button-group {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
     margin: 15px 0;
+}
+
+@media (max-width: 600px) {
+    .button-group {
+        grid-template-columns: 1fr;
+    }
 }
 
 #joinRoomForm {
