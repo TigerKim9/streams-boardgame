@@ -1,112 +1,312 @@
-// 스트림스 보드게임 로직 - 멀티플레이어 지원
+// 스트림스 온라인 멀티플레이어 게임
 
-class StreamsGame {
+class StreamsOnlineGame {
     constructor() {
-        this.numPlayers = 0;
+        this.socket = null;
+        this.roomCode = null;
+        this.playerId = null;
+        this.playerName = null;
+        this.isHost = false;
         this.players = [];
-        this.tiles = [];
+        this.myWorksheet = new Array(20).fill(null);
         this.currentTile = null;
-        this.tilesDrawn = 0;
-        this.currentPlayerIndex = 0;
-        this.isWaitingForPlacement = false;
         this.gameStarted = false;
 
         this.init();
     }
 
     init() {
-        this.setupInitialUI();
+        // Socket.io 연결
+        this.socket = io();
+
+        this.setupSocketListeners();
+        this.setupUIListeners();
     }
 
-    setupInitialUI() {
-        // 플레이어 선택 버튼 이벤트
-        document.querySelectorAll('.player-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const numPlayers = parseInt(e.target.dataset.players);
-                this.startGame(numPlayers);
-            });
+    setupSocketListeners() {
+        // 방 생성 완료
+        this.socket.on('roomCreated', (data) => {
+            this.roomCode = data.roomCode;
+            this.players = data.players;
+            this.isHost = data.isHost;
+            this.playerId = this.socket.id;
+
+            this.showLobby();
         });
 
-        // 게임 버튼 이벤트
-        document.getElementById('drawTileBtn').addEventListener('click', () => this.drawTile());
-        document.getElementById('resetGameBtn').addEventListener('click', () => this.resetGame());
-        document.getElementById('playAgainBtn').addEventListener('click', () => this.resetGame());
-    }
+        // 방 참가 완료
+        this.socket.on('roomJoined', (data) => {
+            this.roomCode = data.roomCode;
+            this.players = data.players;
+            this.isHost = data.isHost;
+            this.playerId = this.socket.id;
 
-    startGame(numPlayers) {
-        this.numPlayers = numPlayers;
-        this.gameStarted = true;
+            this.showLobby();
+        });
 
-        // 플레이어 초기화
-        this.players = [];
-        const playerNames = ['플레이어 1', '플레이어 2', '플레이어 3', '플레이어 4'];
-        const playerColors = ['#667eea', '#f093fb', '#4facfe', '#43e97b'];
+        // 다른 플레이어 참가
+        this.socket.on('playerJoined', (data) => {
+            this.players = data.players;
+            this.updatePlayersList();
+            this.showNotification(`${data.player.name}님이 참가했습니다!`);
+        });
 
-        for (let i = 0; i < numPlayers; i++) {
-            this.players.push({
-                id: i,
-                name: playerNames[i],
-                color: playerColors[i],
-                worksheet: new Array(20).fill(null),
-                tilesPlaced: 0,
-                score: 0
+        // 플레이어 준비 상태 업데이트
+        this.socket.on('playerReadyUpdate', (data) => {
+            this.players = data.players;
+            this.updatePlayersList();
+        });
+
+        // 게임 시작
+        this.socket.on('gameStarted', (data) => {
+            this.players = data.players;
+            this.gameStarted = true;
+
+            document.getElementById('lobbyModal').classList.remove('show');
+            this.setupGame();
+            this.showNotification('게임이 시작되었습니다!');
+        });
+
+        // 타일 뽑기
+        this.socket.on('tileDrawn', (data) => {
+            this.currentTile = data.tile;
+            document.getElementById('currentTile').textContent = data.tile === '⭐' ? '⭐' : data.tile;
+            document.getElementById('remainingTiles').textContent = data.remainingTiles;
+
+            if (this.isHost) {
+                document.getElementById('drawTileBtn').disabled = true;
+            }
+
+            this.showNotification(`타일: ${data.tile}`);
+        });
+
+        // 타일 배치
+        this.socket.on('tilePlaced', (data) => {
+            const player = this.players.find(p => p.id === data.playerId);
+            if (!player) return;
+
+            // UI 업데이트
+            const cell = document.querySelector(`.cell[data-player-id="${data.playerId}"][data-index="${data.index}"]`);
+            if (cell) {
+                cell.textContent = data.value;
+                cell.classList.add('filled', 'highlight');
+
+                if (data.isJoker) {
+                    cell.classList.add('joker');
+                }
+
+                setTimeout(() => cell.classList.remove('highlight'), 500);
+            }
+
+            // 내 배치가 아니면 알림
+            if (data.playerId !== this.playerId) {
+                this.showNotification(`${data.playerName}님이 배치했습니다`);
+            }
+
+            // 대기 중인 플레이어 수 표시
+            if (data.waitingCount > 0) {
+                this.showNotification(`${data.waitingCount}명 대기 중...`);
+            }
+        });
+
+        // 라운드 완료
+        this.socket.on('roundComplete', (data) => {
+            this.currentTile = null;
+            document.getElementById('currentTile').textContent = '-';
+
+            if (this.isHost) {
+                document.getElementById('drawTileBtn').disabled = false;
+            }
+
+            // 모든 플레이어 점수 업데이트
+            this.players.forEach(player => {
+                this.analyzeStreams(player.id);
+                this.updatePlayerScore(player.id);
             });
-        }
 
-        // 타일 생성
-        this.createTileBag();
+            this.showNotification('라운드 완료!');
+        });
 
-        // UI 설정
+        // 점수 업데이트
+        this.socket.on('scoreUpdate', (data) => {
+            const scoreEl = document.getElementById(`score-${data.playerId}`);
+            if (scoreEl) {
+                scoreEl.textContent = `${data.score}점`;
+            }
+        });
+
+        // 게임 종료
+        this.socket.on('gameOver', (data) => {
+            this.players = data.players;
+            this.endGame();
+        });
+
+        // 플레이어 나감
+        this.socket.on('playerLeft', (data) => {
+            this.players = data.players;
+
+            if (data.newHost === this.playerId) {
+                this.isHost = true;
+            }
+
+            if (this.gameStarted) {
+                // 게임 중이면 플레이어 보드 업데이트
+                const playerBoard = document.getElementById(`player-${data.playerId}`);
+                if (playerBoard) {
+                    playerBoard.remove();
+                }
+            } else {
+                // 대기실이면 목록 업데이트
+                this.updatePlayersList();
+            }
+
+            this.showNotification(`${data.playerName}님이 나갔습니다`);
+        });
+
+        // 에러
+        this.socket.on('error', (message) => {
+            alert(message);
+        });
+    }
+
+    setupUIListeners() {
+        // 방 만들기 버튼
+        document.getElementById('createRoomBtn').addEventListener('click', () => {
+            const playerName = document.getElementById('playerNameInput').value.trim();
+
+            if (!playerName) {
+                alert('플레이어 이름을 입력하세요!');
+                return;
+            }
+
+            this.playerName = playerName;
+            this.socket.emit('createRoom', playerName);
+        });
+
+        // 방 참가하기 버튼
+        document.getElementById('joinRoomBtn').addEventListener('click', () => {
+            document.getElementById('joinRoomForm').style.display = 'block';
+        });
+
+        // 방 참가 취소
+        document.getElementById('joinRoomCancelBtn').addEventListener('click', () => {
+            document.getElementById('joinRoomForm').style.display = 'none';
+            document.getElementById('roomCodeInput').value = '';
+        });
+
+        // 방 참가 확인
+        document.getElementById('joinRoomConfirmBtn').addEventListener('click', () => {
+            const playerName = document.getElementById('playerNameInput').value.trim();
+            const roomCode = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+
+            if (!playerName) {
+                alert('플레이어 이름을 입력하세요!');
+                return;
+            }
+
+            if (!roomCode) {
+                alert('방 코드를 입력하세요!');
+                return;
+            }
+
+            this.playerName = playerName;
+            this.socket.emit('joinRoom', { roomCode, playerName });
+        });
+
+        // 준비 버튼
+        document.getElementById('readyBtn').addEventListener('click', () => {
+            this.socket.emit('playerReady');
+        });
+
+        // 게임 시작 버튼 (호스트만)
+        document.getElementById('startGameBtn').addEventListener('click', () => {
+            this.socket.emit('startGame');
+        });
+
+        // 대기실 나가기
+        document.getElementById('leaveLobbyBtn').addEventListener('click', () => {
+            if (confirm('대기실을 나가시겠습니까?')) {
+                window.location.reload();
+            }
+        });
+
+        // 타일 뽑기 (호스트만)
+        document.getElementById('drawTileBtn').addEventListener('click', () => {
+            if (this.isHost) {
+                this.socket.emit('drawTile');
+            }
+        });
+
+        // 게임 재시작
+        document.getElementById('resetGameBtn').addEventListener('click', () => {
+            if (confirm('게임을 재시작하시겠습니까?')) {
+                window.location.reload();
+            }
+        });
+
+        document.getElementById('playAgainBtn').addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
+
+    showLobby() {
         document.getElementById('setupModal').classList.remove('show');
-        this.setupPlayersUI();
-        this.updateDisplay();
+        document.getElementById('lobbyModal').classList.add('show');
+        document.getElementById('roomCodeDisplay').textContent = this.roomCode;
 
-        // 멀티플레이어인 경우 턴 표시
-        if (numPlayers > 1) {
-            document.getElementById('currentTurnCard').style.display = 'block';
+        if (this.isHost) {
+            document.getElementById('startGameBtn').style.display = 'block';
         }
+
+        this.updatePlayersList();
     }
 
-    createTileBag() {
-        this.tiles = [];
-
-        // 0-99 숫자를 각각 2개씩
-        for (let i = 0; i <= 99; i++) {
-            this.tiles.push(i);
-            this.tiles.push(i);
-        }
-
-        // 조커(별) 타일 5개 추가
-        for (let i = 0; i < 5; i++) {
-            this.tiles.push('⭐');
-        }
-
-        // 타일 섞기
-        this.shuffleTiles();
-    }
-
-    shuffleTiles() {
-        for (let i = this.tiles.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [this.tiles[i], this.tiles[j]] = [this.tiles[j], this.tiles[i]];
-        }
-    }
-
-    setupPlayersUI() {
-        const container = document.getElementById('playersContainer');
+    updatePlayersList() {
+        const container = document.getElementById('playersListContent');
         container.innerHTML = '';
 
         this.players.forEach(player => {
+            const playerEl = document.createElement('div');
+            playerEl.className = 'lobby-player';
+
+            if (player.ready) {
+                playerEl.classList.add('ready');
+            }
+
+            if (player.id === this.players[0].id) {
+                playerEl.classList.add('host');
+            }
+
+            playerEl.innerHTML = `
+                <div class="lobby-player-name">${player.name}</div>
+                <div class="lobby-player-status ${player.ready ? 'ready' : ''}">
+                    ${player.ready ? '✓ 준비 완료' : '대기 중'}
+                </div>
+            `;
+
+            container.appendChild(playerEl);
+        });
+    }
+
+    setupGame() {
+        // 플레이어 보드 생성
+        const container = document.getElementById('playersContainer');
+        container.innerHTML = '';
+
+        const playerColors = ['#667eea', '#f093fb', '#4facfe', '#43e97b'];
+
+        this.players.forEach((player, index) => {
             const playerBoard = document.createElement('div');
             playerBoard.className = 'player-board';
             playerBoard.id = `player-${player.id}`;
+
+            const isMe = player.id === this.playerId;
 
             const header = document.createElement('div');
             header.className = 'player-header';
             header.innerHTML = `
                 <div>
-                    <span class="player-name" style="color: ${player.color}">${player.name}</span>
-                    <span class="player-status" id="status-${player.id}"></span>
+                    <span class="player-name" style="color: ${playerColors[index]}">${player.name}${isMe ? ' (나)' : ''}</span>
                 </div>
                 <div class="player-score" id="score-${player.id}">0점</div>
             `;
@@ -122,7 +322,12 @@ class StreamsGame {
                 cell.dataset.playerId = player.id;
                 cell.dataset.index = i;
                 cell.innerHTML = `<span class="cell-index">${i + 1}</span>`;
-                cell.addEventListener('click', () => this.placeNumber(player.id, i));
+
+                // 내 보드에만 클릭 이벤트
+                if (isMe) {
+                    cell.addEventListener('click', () => this.placeNumber(i));
+                }
+
                 worksheet.appendChild(cell);
             }
 
@@ -136,86 +341,23 @@ class StreamsGame {
             container.appendChild(playerBoard);
         });
 
-        // 첫 번째 플레이어 활성화
-        if (this.numPlayers > 1) {
-            this.setActivePlayer(0);
+        // 호스트만 타일 뽑기 버튼 표시
+        if (this.isHost) {
+            document.getElementById('drawTileBtn').style.display = 'inline-block';
+        } else {
+            document.getElementById('drawTileBtn').style.display = 'none';
         }
+
+        document.getElementById('currentTurnCard').style.display = 'none';
     }
 
-    setActivePlayer(index) {
-        // 모든 플레이어 보드 비활성화
-        document.querySelectorAll('.player-board').forEach(board => {
-            board.classList.remove('active');
-        });
-
-        // 현재 플레이어 활성화
-        const activeBoard = document.getElementById(`player-${index}`);
-        if (activeBoard) {
-            activeBoard.classList.add('active');
-        }
-
-        this.currentPlayerIndex = index;
-        this.updateTurnDisplay();
-    }
-
-    updateTurnDisplay() {
-        const turnDisplay = document.getElementById('currentTurn');
-        if (this.numPlayers > 1) {
-            turnDisplay.textContent = this.players[this.currentPlayerIndex].name;
-        }
-    }
-
-    drawTile() {
-        if (!this.gameStarted) {
-            alert('먼저 플레이어 수를 선택해주세요!');
+    placeNumber(index) {
+        if (!this.currentTile) {
+            alert('타일이 뽑히지 않았습니다!');
             return;
         }
 
-        if (this.isWaitingForPlacement) {
-            alert('먼저 현재 타일을 배치해주세요!');
-            return;
-        }
-
-        if (this.tilesDrawn >= 20) {
-            alert('게임이 종료되었습니다!');
-            return;
-        }
-
-        if (this.tiles.length === 0) {
-            alert('타일이 모두 소진되었습니다!');
-            return;
-        }
-
-        // 타일 뽑기
-        const tile = this.tiles.pop();
-        this.currentTile = tile;
-        this.isWaitingForPlacement = true;
-
-        // 현재 타일 표시
-        document.getElementById('currentTile').textContent = tile === '⭐' ? '⭐' : tile;
-        document.getElementById('drawTileBtn').disabled = true;
-
-        // 첫 번째 플레이어로 설정
-        if (this.numPlayers > 1) {
-            this.setActivePlayer(0);
-        }
-    }
-
-    placeNumber(playerId, index) {
-        if (!this.isWaitingForPlacement) {
-            alert('먼저 타일을 뽑아주세요!');
-            return;
-        }
-
-        // 멀티플레이어에서 현재 플레이어만 배치 가능
-        if (this.numPlayers > 1 && playerId !== this.currentPlayerIndex) {
-            alert(`${this.players[this.currentPlayerIndex].name}의 차례입니다!`);
-            return;
-        }
-
-        const player = this.players[playerId];
-
-        if (player.worksheet[index] !== null) {
+        if (this.myWorksheet[index] !== null) {
             alert('이미 숫자가 배치된 칸입니다!');
             return;
         }
@@ -224,85 +366,27 @@ class StreamsGame {
         const isJoker = this.currentTile === '⭐';
         const value = isJoker ? '⭐' : this.currentTile;
 
-        player.worksheet[index] = {
+        this.myWorksheet[index] = {
             value: value,
             isJoker: isJoker
         };
 
-        player.tilesPlaced++;
+        // 서버에 알림
+        this.socket.emit('placeTile', { index });
 
-        // UI 업데이트
-        const cell = document.querySelector(`.cell[data-player-id="${playerId}"][data-index="${index}"]`);
-        cell.textContent = value;
-        cell.classList.add('filled', 'highlight');
-
-        if (isJoker) {
-            cell.classList.add('joker');
-        }
-
-        setTimeout(() => cell.classList.remove('highlight'), 500);
-
-        // 플레이어 점수 및 스트림 분석
-        this.analyzeStreams(playerId);
-        this.updatePlayerScore(playerId);
-
-        // 다음 플레이어로 넘어가기
-        if (this.numPlayers > 1) {
-            const nextPlayerIndex = (this.currentPlayerIndex + 1) % this.numPlayers;
-
-            // 모든 플레이어가 배치했는지 확인
-            if (nextPlayerIndex === 0) {
-                // 라운드 완료
-                this.tilesDrawn++;
-                this.currentTile = null;
-                this.isWaitingForPlacement = false;
-                document.getElementById('drawTileBtn').disabled = false;
-
-                // 플레이어 상태 업데이트
-                this.players.forEach(p => {
-                    const statusEl = document.getElementById(`status-${p.id}`);
-                    statusEl.textContent = `✓ 배치 완료`;
-                    statusEl.style.color = '#28a745';
-                });
-
-                // 상태 초기화 (1초 후)
-                setTimeout(() => {
-                    this.players.forEach(p => {
-                        const statusEl = document.getElementById(`status-${p.id}`);
-                        statusEl.textContent = '';
-                    });
-                }, 1000);
-
-                this.updateDisplay();
-
-                // 게임 종료 체크
-                if (this.tilesDrawn >= 20) {
-                    setTimeout(() => this.endGame(), 1000);
-                }
-            } else {
-                // 다음 플레이어로
-                this.setActivePlayer(nextPlayerIndex);
-                const statusEl = document.getElementById(`status-${playerId}`);
-                statusEl.textContent = `✓ 배치 완료`;
-                statusEl.style.color = '#28a745';
-            }
-        } else {
-            // 싱글 플레이어
-            this.tilesDrawn++;
-            this.currentTile = null;
-            this.isWaitingForPlacement = false;
-            document.getElementById('drawTileBtn').disabled = false;
-            this.updateDisplay();
-
-            // 게임 종료 체크
-            if (this.tilesDrawn >= 20) {
-                setTimeout(() => this.endGame(), 1000);
-            }
-        }
+        // 점수 업데이트
+        setTimeout(() => {
+            const streams = this.analyzeStreams(this.playerId);
+            const score = this.calculateTotalScore(streams);
+            this.socket.emit('updateScore', { score, streams });
+        }, 100);
     }
 
     analyzeStreams(playerId) {
-        const player = this.players[playerId];
+        const player = this.players.find(p => p.id === playerId);
+        if (!player) return [];
+
+        const worksheet = playerId === this.playerId ? this.myWorksheet : player.worksheet;
         const streamDisplay = document.getElementById(`stream-${playerId}`);
         const streams = [];
         let currentStream = [];
@@ -314,7 +398,7 @@ class StreamsGame {
 
         // 스트림 분석
         for (let i = 0; i < 20; i++) {
-            const cell = player.worksheet[i];
+            const cell = worksheet[i];
 
             if (cell === null) {
                 continue;
@@ -360,7 +444,7 @@ class StreamsGame {
         }
 
         // 스트림 표시
-        if (streams.length > 0) {
+        if (streams.length > 0 && streamDisplay) {
             streamDisplay.innerHTML = '<h4 style="font-size: 0.9em; color: #667eea; margin-bottom: 10px;">현재 스트림:</h4>';
             streams.forEach((stream, idx) => {
                 const score = this.calculateStreamScore(stream.length);
@@ -380,66 +464,70 @@ class StreamsGame {
         return (length * (length + 1)) / 2;
     }
 
-    calculateTotalScore(playerId) {
-        const streams = this.analyzeStreams(playerId);
+    calculateTotalScore(streams) {
         let totalScore = 0;
-
         streams.forEach(stream => {
             totalScore += this.calculateStreamScore(stream.length);
         });
-
         return totalScore;
     }
 
     updatePlayerScore(playerId) {
-        const score = this.calculateTotalScore(playerId);
-        this.players[playerId].score = score;
-        document.getElementById(`score-${playerId}`).textContent = `${score}점`;
-    }
-
-    updateDisplay() {
-        document.getElementById('remainingTiles').textContent = 20 - this.tilesDrawn;
+        const streams = this.analyzeStreams(playerId);
+        const score = this.calculateTotalScore(streams);
+        const scoreEl = document.getElementById(`score-${playerId}`);
+        if (scoreEl) {
+            scoreEl.textContent = `${score}점`;
+        }
     }
 
     endGame() {
-        // 모든 플레이어 점수 계산
+        // 최종 점수 계산
         this.players.forEach(player => {
-            player.score = this.calculateTotalScore(player.id);
+            this.updatePlayerScore(player.id);
         });
 
         // 승자 찾기
-        const maxScore = Math.max(...this.players.map(p => p.score));
-        const winners = this.players.filter(p => p.score === maxScore);
+        const scores = this.players.map(p => {
+            const scoreEl = document.getElementById(`score-${p.id}`);
+            return {
+                player: p,
+                score: parseInt(scoreEl.textContent) || 0
+            };
+        });
+
+        scores.sort((a, b) => b.score - a.score);
+        const maxScore = scores[0].score;
+        const winners = scores.filter(s => s.score === maxScore);
 
         // 게임 오버 모달 표시
         const modal = document.getElementById('gameOverModal');
         const finalScoreDiv = document.getElementById('finalScore');
         const breakdownDiv = document.getElementById('streamBreakdown');
 
-        if (this.numPlayers === 1) {
-            finalScoreDiv.textContent = `${this.players[0].score}점`;
+        if (winners.length > 1) {
+            finalScoreDiv.textContent = '무승부!';
         } else {
-            finalScoreDiv.textContent = winners.length > 1 ? '무승부!' : `${winners[0].name} 승리!`;
+            finalScoreDiv.textContent = `${winners[0].player.name} 승리!`;
         }
 
         // 전체 결과 표시
         let breakdownHTML = '<h4>최종 결과:</h4>';
 
-        // 점수 순으로 정렬
-        const sortedPlayers = [...this.players].sort((a, b) => b.score - a.score);
-
-        sortedPlayers.forEach((player, rank) => {
-            const streams = this.analyzeStreams(player.id);
-            const isWinner = player.score === maxScore;
+        scores.forEach((item, rank) => {
+            const streams = this.analyzeStreams(item.player.id);
+            const isWinner = item.score === maxScore;
+            const playerColors = ['#667eea', '#f093fb', '#4facfe', '#43e97b'];
+            const color = playerColors[this.players.indexOf(item.player)] || '#667eea';
 
             breakdownHTML += `
                 <div style="margin: 15px 0; padding: 15px; background: ${isWinner ? '#fff3cd' : 'white'}; border-radius: 10px; border: 2px solid ${isWinner ? '#ffc107' : '#ddd'};">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong style="font-size: 1.2em; color: ${player.color}">${rank + 1}. ${player.name}</strong>
+                        <strong style="font-size: 1.2em; color: ${color}">${rank + 1}. ${item.player.name}</strong>
                         ${isWinner ? '<span style="background: #ffd700; padding: 3px 10px; border-radius: 15px; font-size: 0.9em;">🏆 승자</span>' : ''}
                     </div>
                     <div style="font-size: 1.1em; font-weight: bold; color: #764ba2; margin-bottom: 10px;">
-                        총 점수: ${player.score}점
+                        총 점수: ${item.score}점
                     </div>
                     <div style="font-size: 0.9em;">
                         ${streams.map((stream, idx) => {
@@ -457,42 +545,12 @@ class StreamsGame {
         // 버튼 비활성화
         document.getElementById('drawTileBtn').disabled = true;
 
-        // 플레이어 보드 비활성화
-        document.querySelectorAll('.player-board').forEach(board => {
-            board.classList.remove('active');
-            board.classList.add('completed');
-        });
-
-        // 승자 표시
-        if (this.numPlayers > 1) {
-            winners.forEach(winner => {
-                const winnerBoard = document.getElementById(`player-${winner.id}`);
-                const winnerName = winnerBoard.querySelector('.player-name');
-                winnerName.innerHTML += ' <span class="winner-badge">🏆 승자</span>';
-            });
-        }
+        this.showNotification('게임 종료!');
     }
 
-    resetGame() {
-        // 모달 닫기
-        document.getElementById('gameOverModal').classList.remove('show');
-        document.getElementById('setupModal').classList.add('show');
-
-        // 상태 초기화
-        this.numPlayers = 0;
-        this.players = [];
-        this.currentTile = null;
-        this.tilesDrawn = 0;
-        this.currentPlayerIndex = 0;
-        this.isWaitingForPlacement = false;
-        this.gameStarted = false;
-
-        // UI 초기화
-        document.getElementById('playersContainer').innerHTML = '';
-        document.getElementById('currentTile').textContent = '-';
-        document.getElementById('remainingTiles').textContent = '20';
-        document.getElementById('currentTurnCard').style.display = 'none';
-        document.getElementById('drawTileBtn').disabled = false;
+    showNotification(message) {
+        // 간단한 알림 표시 (나중에 토스트로 개선 가능)
+        console.log('알림:', message);
     }
 }
 
@@ -500,5 +558,5 @@ class StreamsGame {
 let game;
 
 window.addEventListener('DOMContentLoaded', () => {
-    game = new StreamsGame();
+    game = new StreamsOnlineGame();
 });

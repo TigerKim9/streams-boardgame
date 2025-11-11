@@ -83,13 +83,43 @@
 
     <div id="setupModal" class="modal show">
         <div class="modal-content">
-            <h2>🎮 게임 설정</h2>
-            <p>플레이어 수를 선택하세요:</p>
-            <div class="player-selection">
-                <button class="player-btn" data-players="1">1인 (솔로)</button>
-                <button class="player-btn" data-players="2">2인</button>
-                <button class="player-btn" data-players="3">3인</button>
-                <button class="player-btn" data-players="4">4인</button>
+            <h2>🎮 스트림스 온라인</h2>
+            <p>온라인 멀티플레이어로 친구들과 함께 플레이하세요!</p>
+
+            <div class="setup-form">
+                <input type="text" id="playerNameInput" placeholder="플레이어 이름 입력" maxlength="15">
+
+                <div class="button-group">
+                    <button id="createRoomBtn" class="btn btn-primary">방 만들기</button>
+                    <button id="joinRoomBtn" class="btn btn-secondary">방 참가하기</button>
+                </div>
+
+                <div id="joinRoomForm" style="display: none;">
+                    <input type="text" id="roomCodeInput" placeholder="방 코드 입력" maxlength="6">
+                    <button id="joinRoomConfirmBtn" class="btn btn-primary">참가</button>
+                    <button id="joinRoomCancelBtn" class="btn btn-secondary">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="lobbyModal" class="modal">
+        <div class="modal-content">
+            <h2>🎮 대기실</h2>
+            <div id="roomInfo">
+                <p>방 코드: <strong id="roomCodeDisplay"></strong></p>
+                <p class="room-code-hint">친구에게 이 코드를 알려주세요!</p>
+            </div>
+
+            <div id="playersList">
+                <h3>플레이어 목록</h3>
+                <div id="playersListContent"></div>
+            </div>
+
+            <div class="lobby-controls">
+                <button id="readyBtn" class="btn btn-secondary">준비</button>
+                <button id="startGameBtn" class="btn btn-primary" style="display: none;">게임 시작</button>
+                <button id="leaveLobbyBtn" class="btn btn-cancel">나가기</button>
             </div>
         </div>
     </div>
@@ -103,6 +133,7 @@
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="game.js"></script>
 </body>
 </html>
