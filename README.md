@@ -75,11 +75,13 @@
 
 ## 실행 방법
 
-### 사전 요구사항
+### 방법 1: 로컬 실행
+
+#### 사전 요구사항
 - Node.js (v14 이상)
 - npm
 
-### 설치 및 실행
+#### 설치 및 실행
 ```bash
 # 의존성 설치
 npm install
@@ -90,22 +92,81 @@ npm start
 
 서버가 시작되면 브라우저에서 `http://localhost:3000`에 접속하세요!
 
-### 개발 모드 (자동 재시작)
+#### 개발 모드 (자동 재시작)
 ```bash
 npm run dev
 ```
+
+### 방법 2: Docker 배포 (권장)
+
+#### 사전 요구사항
+- Docker
+- Docker Compose
+
+#### Docker Compose로 실행 (가장 간단)
+```bash
+# 이미지 빌드 및 컨테이너 시작
+docker-compose up -d
+
+# 로그 확인
+docker-compose logs -f
+
+# 중지
+docker-compose down
+```
+
+#### Docker만 사용
+```bash
+# 이미지 빌드
+docker build -t streams-boardgame .
+
+# 컨테이너 실행
+docker run -d -p 3000:3000 --name streams-game streams-boardgame
+
+# 로그 확인
+docker logs -f streams-game
+
+# 중지 및 삭제
+docker stop streams-game
+docker rm streams-game
+```
+
+서버가 시작되면 브라우저에서 `http://localhost:3000`에 접속하세요!
+
+### 배포 (프로덕션)
+
+Docker Compose를 사용하여 클라우드 서버에 배포할 수 있습니다:
+
+```bash
+# 서버에 코드 복사
+git clone <repository-url>
+cd streams-boardgame
+
+# Docker Compose로 백그라운드 실행
+docker-compose up -d
+
+# 업데이트 시
+git pull
+docker-compose down
+docker-compose up -d --build
+```
+
+**포트 설정**: 기본 포트는 3000입니다. 변경하려면 `docker-compose.yml`의 포트 매핑을 수정하세요.
 
 ## 파일 구조
 
 ```
 streams-boardgame/
-├── server.js         # Node.js 서버 (Socket.io)
-├── package.json      # 프로젝트 설정 및 의존성
-├── index.html        # 메인 게임 페이지
-├── styles.css        # 스타일시트
-├── game.js           # 클라이언트 게임 로직
-├── .gitignore        # Git 무시 파일
-└── README.md         # 이 파일
+├── server.js           # Node.js 서버 (Socket.io)
+├── package.json        # 프로젝트 설정 및 의존성
+├── index.html          # 메인 게임 페이지
+├── styles.css          # 스타일시트
+├── game.js             # 클라이언트 게임 로직
+├── Dockerfile          # Docker 이미지 설정
+├── docker-compose.yml  # Docker Compose 설정
+├── .dockerignore       # Docker 빌드 제외 파일
+├── .gitignore          # Git 무시 파일
+└── README.md           # 이 파일
 ```
 
 ## 기술 스택
