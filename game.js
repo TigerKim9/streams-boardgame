@@ -90,43 +90,6 @@ class StreamsGame {
         document.getElementById('drawTileBtn').disabled = true;
     }
 
-    calculateJokerValue(index) {
-        // 조커를 배치할 위치의 왼쪽과 오른쪽 숫자를 고려하여 최적의 값을 계산
-        let leftValue = null;
-        let rightValue = null;
-
-        // 왼쪽에서 가장 가까운 숫자 찾기
-        for (let i = index - 1; i >= 0; i--) {
-            if (this.worksheet[i] !== null) {
-                leftValue = this.worksheet[i].value;
-                break;
-            }
-        }
-
-        // 오른쪽에서 가장 가까운 숫자 찾기
-        for (let i = index + 1; i < 20; i++) {
-            if (this.worksheet[i] !== null) {
-                rightValue = this.worksheet[i].value;
-                break;
-            }
-        }
-
-        // 최적의 조커 값 계산
-        if (leftValue !== null && rightValue !== null) {
-            // 양쪽에 숫자가 있는 경우: 중간값
-            return Math.floor((leftValue + rightValue) / 2);
-        } else if (leftValue !== null) {
-            // 왼쪽에만 숫자가 있는 경우: 왼쪽 값보다 큰 값
-            return Math.min(leftValue + 10, 99);
-        } else if (rightValue !== null) {
-            // 오른쪽에만 숫자가 있는 경우: 오른쪽 값보다 작은 값
-            return Math.max(rightValue - 10, 0);
-        } else {
-            // 아무것도 없는 경우: 중간값
-            return 50;
-        }
-    }
-
     placeNumber(index) {
         if (!this.isWaitingForPlacement) {
             alert('먼저 타일을 뽑아주세요!');
@@ -140,7 +103,7 @@ class StreamsGame {
 
         // 숫자 배치
         const isJoker = this.currentTile === '⭐';
-        const value = isJoker ? this.calculateJokerValue(index) : this.currentTile;
+        const value = isJoker ? '⭐' : this.currentTile;
 
         this.worksheet[index] = {
             value: value,
@@ -149,7 +112,7 @@ class StreamsGame {
 
         // UI 업데이트
         const cell = document.querySelector(`.cell[data-index="${index}"]`);
-        cell.textContent = isJoker ? `⭐${value}` : value;
+        cell.textContent = value;
         cell.classList.add('filled', 'highlight');
 
         if (isJoker) {
@@ -179,6 +142,11 @@ class StreamsGame {
         const streams = [];
         let currentStream = [];
 
+        // 스트림 끊김 표시 초기화
+        document.querySelectorAll('.stream-break').forEach(cell => {
+            cell.classList.remove('stream-break');
+        });
+
         // 스트림 분석
         for (let i = 0; i < 20; i++) {
             const cell = this.worksheet[i];
@@ -190,10 +158,23 @@ class StreamsGame {
             if (currentStream.length === 0) {
                 currentStream.push(cell.value);
             } else {
-                const lastValue = currentStream[currentStream.length - 1];
+                // 이전 값 찾기 (조커가 아닌 마지막 값)
+                let lastValue = null;
+                for (let j = currentStream.length - 1; j >= 0; j--) {
+                    if (currentStream[j] !== '⭐') {
+                        lastValue = currentStream[j];
+                        break;
+                    }
+                }
 
-                // 오름차순 체크 (같은 값도 허용)
-                if (cell.value >= lastValue) {
+                // 조커는 항상 오름차순을 유지
+                if (cell.value === '⭐') {
+                    currentStream.push(cell.value);
+                } else if (lastValue === null) {
+                    // 이전이 모두 조커인 경우
+                    currentStream.push(cell.value);
+                } else if (cell.value >= lastValue) {
+                    // 오름차순 체크 (같은 값도 허용)
                     currentStream.push(cell.value);
                 } else {
                     // 스트림 끊김
