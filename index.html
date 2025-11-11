@@ -7,86 +7,16 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
+    <!-- 로비 -->
+    <div id="lobby" class="lobby">
         <header>
             <h1>🎲 스트림스 (Streams)</h1>
-            <p class="subtitle">숫자를 오름차순으로 배치하여 최고 점수를 획득하세요!</p>
+            <p class="subtitle">온라인 멀티플레이어 보드게임</p>
         </header>
 
-        <div class="game-info">
-            <div class="info-card">
-                <label>현재 타일:</label>
-                <div id="currentTile" class="current-tile">-</div>
-            </div>
-            <div class="info-card">
-                <label>남은 타일:</label>
-                <div id="remainingTiles" class="stat">20</div>
-            </div>
-            <div class="info-card" id="currentTurnCard" style="display: none;">
-                <label>현재 차례:</label>
-                <div id="currentTurn" class="stat">-</div>
-            </div>
-        </div>
-
-        <div id="playersContainer">
-            <!-- 플레이어들의 시트지가 여기에 동적으로 생성됩니다 -->
-        </div>
-
-        <div class="controls">
-            <button id="drawTileBtn" class="btn btn-primary">타일 뽑기</button>
-            <button id="resetGameBtn" class="btn btn-secondary">게임 재시작</button>
-        </div>
-
-        <div class="rules">
-            <h3>게임 규칙</h3>
-            <ul>
-                <li>타일을 뽑으면 나온 숫자를 20칸 중 원하는 곳에 배치합니다</li>
-                <li>왼쪽에서 오른쪽으로 읽을 때 <strong>오름차순</strong>이어야 합니다</li>
-                <li>같은 숫자가 연속되어도 오름차순으로 인정됩니다</li>
-                <li>오름차순이 깨지면 새로운 스트림(덩어리)이 시작됩니다</li>
-                <li>⭐ 조커 타일은 와일드카드로, 항상 오름차순을 유지하며 스트림을 이어줍니다</li>
-                <li>20칸을 모두 채워야 게임이 종료됩니다</li>
-                <li>각 스트림의 길이에 따라 점수가 계산됩니다 (길수록 높은 점수!)</li>
-                <li><strong>멀티플레이</strong>: 같은 타일이 공개되면 각 플레이어가 순서대로 자신의 시트지에 배치합니다</li>
-            </ul>
-        </div>
-
-        <div class="scoring-info">
-            <h3>점수 계산</h3>
-            <table>
-                <tr>
-                    <th>스트림 길이</th>
-                    <td>1</td>
-                    <td>2</td>
-                    <td>3</td>
-                    <td>4</td>
-                    <td>5</td>
-                    <td>6</td>
-                    <td>7</td>
-                    <td>8+</td>
-                </tr>
-                <tr>
-                    <th>점수</th>
-                    <td>1</td>
-                    <td>3</td>
-                    <td>6</td>
-                    <td>10</td>
-                    <td>15</td>
-                    <td>21</td>
-                    <td>28</td>
-                    <td>...</td>
-                </tr>
-            </table>
-            <p class="formula">점수 = n × (n + 1) / 2 (n: 스트림 길이)</p>
-        </div>
-    </div>
-
-    <div id="setupModal" class="modal show">
-        <div class="modal-content">
-            <h2>🎮 스트림스 온라인</h2>
-            <p>온라인 멀티플레이어로 친구들과 함께 플레이하세요!</p>
-
-            <div class="setup-form">
+        <div class="lobby-content">
+            <div class="setup-section">
+                <h2>게임 시작하기</h2>
                 <input type="text" id="playerNameInput" placeholder="플레이어 이름 입력" maxlength="15">
 
                 <div class="button-group">
@@ -100,27 +30,56 @@
                     <button id="joinRoomCancelBtn" class="btn btn-secondary">취소</button>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div id="lobbyModal" class="modal">
-        <div class="modal-content">
-            <h2>🎮 대기실</h2>
-            <div id="roomInfo">
-                <p>방 코드: <strong id="roomCodeDisplay"></strong></p>
-                <p class="room-code-hint">친구에게 이 코드를 알려주세요!</p>
-            </div>
+            <div id="roomSection" style="display: none;">
+                <h2>방 코드: <span id="roomCodeDisplay"></span></h2>
+                <p class="room-hint">친구들에게 이 코드를 알려주세요!</p>
 
-            <div id="playersList">
-                <h3>플레이어 목록</h3>
-                <div id="playersListContent"></div>
-            </div>
+                <div class="players-list">
+                    <h3>참가자 목록</h3>
+                    <div id="playersListContent"></div>
+                </div>
 
-            <div class="lobby-controls">
-                <button id="readyBtn" class="btn btn-secondary">준비</button>
                 <button id="startGameBtn" class="btn btn-primary" style="display: none;">게임 시작</button>
                 <button id="leaveLobbyBtn" class="btn btn-cancel">나가기</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div id="gameScreen" class="container" style="display: none;">
+        <header>
+            <h1>🎲 스트림스 (Streams)</h1>
+            <p class="subtitle">방 코드: <span id="gameRoomCode"></span></p>
+        </header>
+
+        <div class="game-info">
+            <div class="info-card">
+                <label>현재 타일:</label>
+                <div id="currentTile" class="current-tile">-</div>
+            </div>
+            <div class="info-card">
+                <label>남은 타일:</label>
+                <div id="remainingTiles" class="stat">20</div>
+            </div>
+        </div>
+
+        <div id="playersContainer">
+            <!-- 플레이어들의 시트지가 여기에 동적으로 생성됩니다 -->
+        </div>
+
+        <div class="controls">
+            <button id="drawTileBtn" class="btn btn-primary">타일 뽑기</button>
+        </div>
+
+        <div class="rules">
+            <h3>게임 규칙</h3>
+            <ul>
+                <li>타일을 뽑으면 나온 숫자를 20칸 중 원하는 곳에 배치합니다</li>
+                <li>왼쪽에서 오른쪽으로 읽을 때 <strong>오름차순</strong>이어야 합니다</li>
+                <li>⭐ 조커 타일은 와일드카드로, 항상 오름차순을 유지합니다</li>
+                <li>각 스트림의 길이에 따라 점수가 계산됩니다 (점수 = n × (n + 1) / 2)</li>
+            </ul>
         </div>
     </div>
 

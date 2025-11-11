@@ -67,8 +67,7 @@ io.on('connection', (socket) => {
                 name: playerName,
                 worksheet: new Array(20).fill(null),
                 tilesPlaced: 0,
-                score: 0,
-                ready: false
+                score: 0
             }],
             tiles: createTileBag(),
             currentTile: null,
@@ -115,8 +114,7 @@ io.on('connection', (socket) => {
             name: playerName,
             worksheet: new Array(20).fill(null),
             tilesPlaced: 0,
-            score: 0,
-            ready: false
+            score: 0
         };
 
         room.players.push(player);
@@ -139,25 +137,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 준비 완료
-    socket.on('playerReady', () => {
-        const roomCode = socket.roomCode;
-        const room = rooms.get(roomCode);
-
-        if (!room) return;
-
-        const player = room.players.find(p => p.id === socket.id);
-        if (player) {
-            player.ready = !player.ready;
-
-            io.to(roomCode).emit('playerReadyUpdate', {
-                playerId: socket.id,
-                ready: player.ready,
-                players: room.players
-            });
-        }
-    });
-
     // 게임 시작 (호스트만 가능)
     socket.on('startGame', () => {
         const roomCode = socket.roomCode;
@@ -165,12 +144,6 @@ io.on('connection', (socket) => {
 
         if (!room || room.host !== socket.id) {
             socket.emit('error', '호스트만 게임을 시작할 수 있습니다.');
-            return;
-        }
-
-        const allReady = room.players.every(p => p.ready || p.id === room.host);
-        if (!allReady) {
-            socket.emit('error', '모든 플레이어가 준비되지 않았습니다.');
             return;
         }
 

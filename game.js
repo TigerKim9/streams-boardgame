@@ -51,18 +51,16 @@ class StreamsOnlineGame {
             this.showNotification(`${data.player.name}님이 참가했습니다!`);
         });
 
-        // 플레이어 준비 상태 업데이트
-        this.socket.on('playerReadyUpdate', (data) => {
-            this.players = data.players;
-            this.updatePlayersList();
-        });
-
         // 게임 시작
         this.socket.on('gameStarted', (data) => {
             this.players = data.players;
             this.gameStarted = true;
 
-            document.getElementById('lobbyModal').classList.remove('show');
+            // 로비 숨기고 게임 화면 표시
+            document.getElementById('lobby').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'block';
+            document.getElementById('gameRoomCode').textContent = this.roomCode;
+
             this.setupGame();
             this.showNotification('게임이 시작되었습니다!');
         });
@@ -213,11 +211,6 @@ class StreamsOnlineGame {
             this.socket.emit('joinRoom', { roomCode, playerName });
         });
 
-        // 준비 버튼
-        document.getElementById('readyBtn').addEventListener('click', () => {
-            this.socket.emit('playerReady');
-        });
-
         // 게임 시작 버튼 (호스트만)
         document.getElementById('startGameBtn').addEventListener('click', () => {
             this.socket.emit('startGame');
@@ -237,25 +230,20 @@ class StreamsOnlineGame {
             }
         });
 
-        // 게임 재시작
-        document.getElementById('resetGameBtn').addEventListener('click', () => {
-            if (confirm('게임을 재시작하시겠습니까?')) {
-                window.location.reload();
-            }
-        });
-
+        // 다시 하기
         document.getElementById('playAgainBtn').addEventListener('click', () => {
             window.location.reload();
         });
     }
 
     showLobby() {
-        document.getElementById('setupModal').classList.remove('show');
-        document.getElementById('lobbyModal').classList.add('show');
+        // 설정 섹션 숨기고 방 섹션 표시
+        document.querySelector('.setup-section').style.display = 'none';
+        document.getElementById('roomSection').style.display = 'block';
         document.getElementById('roomCodeDisplay').textContent = this.roomCode;
 
         if (this.isHost) {
-            document.getElementById('startGameBtn').style.display = 'block';
+            document.getElementById('startGameBtn').style.display = 'inline-block';
         }
 
         this.updatePlayersList();
@@ -265,22 +253,18 @@ class StreamsOnlineGame {
         const container = document.getElementById('playersListContent');
         container.innerHTML = '';
 
-        this.players.forEach(player => {
+        this.players.forEach((player, index) => {
             const playerEl = document.createElement('div');
             playerEl.className = 'lobby-player';
-
-            if (player.ready) {
-                playerEl.classList.add('ready');
-            }
 
             if (player.id === this.players[0].id) {
                 playerEl.classList.add('host');
             }
 
             playerEl.innerHTML = `
-                <div class="lobby-player-name">${player.name}</div>
-                <div class="lobby-player-status ${player.ready ? 'ready' : ''}">
-                    ${player.ready ? '✓ 준비 완료' : '대기 중'}
+                <div class="lobby-player-name">
+                    ${index + 1}. ${player.name}
+                    ${player.id === this.players[0].id ? ' (방장)' : ''}
                 </div>
             `;
 
