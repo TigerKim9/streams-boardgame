@@ -7,6 +7,12 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// 요청 로깅 미들웨어
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 // 정적 파일 제공
 app.use(express.static(path.join(__dirname)));
 
@@ -48,7 +54,7 @@ function createTileBag() {
 }
 
 io.on('connection', (socket) => {
-    console.log('새 플레이어 연결:', socket.id);
+    console.log('✅ 새 플레이어 Socket.io 연결:', socket.id);
 
     // 방 생성
     socket.on('createRoom', (playerName) => {
