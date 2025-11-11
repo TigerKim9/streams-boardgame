@@ -7,7 +7,6 @@ class StreamsGame {
         this.currentTile = null;
         this.tilesDrawn = 0;
         this.isWaitingForPlacement = false;
-        this.jokerValue = null;
 
         this.init();
     }
@@ -62,7 +61,6 @@ class StreamsGame {
         // 버튼 이벤트
         document.getElementById('drawTileBtn').addEventListener('click', () => this.drawTile());
         document.getElementById('resetGameBtn').addEventListener('click', () => this.resetGame());
-        document.getElementById('jokerConfirm').addEventListener('click', () => this.confirmJoker());
         document.getElementById('playAgainBtn').addEventListener('click', () => this.resetGame());
     }
 
@@ -87,34 +85,46 @@ class StreamsGame {
         this.currentTile = tile;
         this.isWaitingForPlacement = true;
 
-        // 조커인 경우 모달 표시
-        if (tile === '⭐') {
-            this.showJokerModal();
-        } else {
-            document.getElementById('currentTile').textContent = tile;
-            document.getElementById('drawTileBtn').disabled = true;
-        }
-    }
-
-    showJokerModal() {
-        const modal = document.getElementById('modal');
-        modal.classList.add('show');
-        document.getElementById('currentTile').textContent = '⭐';
-        document.getElementById('jokerInput').focus();
-    }
-
-    confirmJoker() {
-        const value = parseInt(document.getElementById('jokerInput').value);
-
-        if (isNaN(value) || value < 0 || value > 99) {
-            alert('0-99 사이의 숫자를 입력해주세요!');
-            return;
-        }
-
-        this.jokerValue = value;
-        document.getElementById('currentTile').textContent = `⭐(${value})`;
-        document.getElementById('modal').classList.remove('show');
+        // 현재 타일 표시
+        document.getElementById('currentTile').textContent = tile === '⭐' ? '⭐' : tile;
         document.getElementById('drawTileBtn').disabled = true;
+    }
+
+    calculateJokerValue(index) {
+        // 조커를 배치할 위치의 왼쪽과 오른쪽 숫자를 고려하여 최적의 값을 계산
+        let leftValue = null;
+        let rightValue = null;
+
+        // 왼쪽에서 가장 가까운 숫자 찾기
+        for (let i = index - 1; i >= 0; i--) {
+            if (this.worksheet[i] !== null) {
+                leftValue = this.worksheet[i].value;
+                break;
+            }
+        }
+
+        // 오른쪽에서 가장 가까운 숫자 찾기
+        for (let i = index + 1; i < 20; i++) {
+            if (this.worksheet[i] !== null) {
+                rightValue = this.worksheet[i].value;
+                break;
+            }
+        }
+
+        // 최적의 조커 값 계산
+        if (leftValue !== null && rightValue !== null) {
+            // 양쪽에 숫자가 있는 경우: 중간값
+            return Math.floor((leftValue + rightValue) / 2);
+        } else if (leftValue !== null) {
+            // 왼쪽에만 숫자가 있는 경우: 왼쪽 값보다 큰 값
+            return Math.min(leftValue + 10, 99);
+        } else if (rightValue !== null) {
+            // 오른쪽에만 숫자가 있는 경우: 오른쪽 값보다 작은 값
+            return Math.max(rightValue - 10, 0);
+        } else {
+            // 아무것도 없는 경우: 중간값
+            return 50;
+        }
     }
 
     placeNumber(index) {
@@ -129,8 +139,8 @@ class StreamsGame {
         }
 
         // 숫자 배치
-        const value = this.currentTile === '⭐' ? this.jokerValue : this.currentTile;
         const isJoker = this.currentTile === '⭐';
+        const value = isJoker ? this.calculateJokerValue(index) : this.currentTile;
 
         this.worksheet[index] = {
             value: value,
@@ -151,7 +161,6 @@ class StreamsGame {
         // 상태 업데이트
         this.tilesDrawn++;
         this.currentTile = null;
-        this.jokerValue = null;
         this.isWaitingForPlacement = false;
 
         document.getElementById('drawTileBtn').disabled = false;
@@ -277,7 +286,6 @@ class StreamsGame {
 
     resetGame() {
         // 모달 닫기
-        document.getElementById('modal').classList.remove('show');
         document.getElementById('gameOverModal').classList.remove('show');
 
         // 상태 초기화
@@ -285,7 +293,6 @@ class StreamsGame {
         this.currentTile = null;
         this.tilesDrawn = 0;
         this.isWaitingForPlacement = false;
-        this.jokerValue = null;
 
         // 타일 다시 생성
         this.createTileBag();
