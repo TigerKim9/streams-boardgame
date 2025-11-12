@@ -272,6 +272,38 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 게임 재시작 (호스트만 가능)
+    socket.on('restartGame', () => {
+        const roomCode = socket.roomCode;
+        const room = rooms.get(roomCode);
+
+        if (!room || room.host !== socket.id) {
+            socket.emit('error', '호스트만 게임을 재시작할 수 있습니다.');
+            return;
+        }
+
+        console.log(`방 ${roomCode} 게임 재시작`);
+
+        // 게임 상태 초기화
+        room.gameStarted = false;
+        room.tiles = createTileBag();
+        room.currentTile = null;
+        room.tilesDrawn = 0;
+        room.waitingForPlacements = [];
+
+        // 모든 플레이어의 워크시트와 점수 초기화
+        room.players.forEach(player => {
+            player.worksheet = new Array(20).fill(null);
+            player.tilesPlaced = 0;
+            player.score = 0;
+        });
+
+        // 모든 플레이어에게 재시작 알림
+        io.to(roomCode).emit('gameRestarted', {
+            players: room.players
+        });
+    });
+
     // 연결 해제
     socket.on('disconnect', () => {
         console.log('플레이어 연결 해제:', socket.id);
