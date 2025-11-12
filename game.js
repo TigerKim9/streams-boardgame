@@ -142,6 +142,12 @@ class StreamsOnlineGame {
             this.endGame();
         });
 
+        // 게임 재시작
+        this.socket.on('gameRestarted', (data) => {
+            this.players = data.players;
+            this.restartToLobby();
+        });
+
         // 플레이어 나감
         this.socket.on('playerLeft', (data) => {
             this.players = data.players;
@@ -244,7 +250,17 @@ class StreamsOnlineGame {
 
         // 다시 하기
         document.getElementById('playAgainBtn').addEventListener('click', () => {
-            window.location.reload();
+            if (this.isSoloMode) {
+                // 싱글플레이어 모드는 로컬에서 재시작
+                this.restartSoloGame();
+            } else {
+                // 멀티플레이어 모드는 서버에 재시작 요청
+                if (this.isHost) {
+                    this.socket.emit('restartGame');
+                } else {
+                    alert('방장만 게임을 재시작할 수 있습니다.');
+                }
+            }
         });
     }
 
@@ -549,6 +565,46 @@ class StreamsOnlineGame {
         document.getElementById('drawTileBtn').disabled = true;
 
         this.showNotification('게임 종료!');
+    }
+
+    restartToLobby() {
+        // 게임 상태 초기화
+        this.myWorksheet = new Array(20).fill(null);
+        this.currentTile = null;
+        this.gameStarted = false;
+
+        // 게임 화면 숨기고 로비 표시
+        document.getElementById('gameScreen').style.display = 'none';
+        document.getElementById('gameOverModal').classList.remove('show');
+        document.getElementById('lobby').style.display = 'block';
+
+        // 로비 UI 업데이트
+        this.showLobby();
+
+        this.showNotification('게임이 재시작되었습니다. 방장이 게임을 시작할 수 있습니다.');
+    }
+
+    restartSoloGame() {
+        // 게임 상태 초기화
+        this.myWorksheet = new Array(20).fill(null);
+        this.currentTile = null;
+        this.tileBag = this.createTileBag();
+        this.tilesDrawn = 0;
+
+        // 플레이어 워크시트 초기화
+        this.players[0].worksheet = new Array(20).fill(null);
+        this.players[0].score = 0;
+
+        // 게임 오버 모달 숨기기
+        document.getElementById('gameOverModal').classList.remove('show');
+
+        // 게임 화면 재설정
+        this.setupGame();
+
+        // 타일 뽑기 버튼 활성화
+        document.getElementById('drawTileBtn').disabled = false;
+
+        this.showNotification('게임이 재시작되었습니다!');
     }
 
     showNotification(message) {
