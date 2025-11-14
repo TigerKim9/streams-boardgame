@@ -14,6 +14,7 @@ class StreamsOnlineGame {
         this.isSoloMode = false;
         this.tileBag = [];
         this.tilesDrawn = 0;
+        this.autoDrawEnabled = false;
 
         this.init();
     }
@@ -126,6 +127,16 @@ class StreamsOnlineGame {
             });
 
             this.showNotification('라운드 완료!');
+        });
+
+        // 자동 타일 뽑기 토글
+        this.socket.on('autoDrawToggled', (data) => {
+            this.autoDrawEnabled = data.enabled;
+            const checkbox = document.getElementById('autoDrawToggle');
+            if (checkbox) {
+                checkbox.checked = data.enabled;
+            }
+            this.showNotification(data.enabled ? '자동 타일 뽑기 활성화' : '자동 타일 뽑기 비활성화');
         });
 
         // 점수 업데이트
@@ -262,6 +273,23 @@ class StreamsOnlineGame {
                 }
             }
         });
+
+        // 자동 타일 뽑기 토글
+        document.getElementById('autoDrawToggle').addEventListener('change', (e) => {
+            if (this.isSoloMode) {
+                // 싱글플레이어 모드는 로컬에서 처리
+                this.autoDrawEnabled = e.target.checked;
+                this.showNotification(this.autoDrawEnabled ? '자동 타일 뽑기 활성화' : '자동 타일 뽑기 비활성화');
+            } else {
+                // 멀티플레이어 모드는 호스트만 변경 가능
+                if (this.isHost) {
+                    this.socket.emit('toggleAutoDraw', { enabled: e.target.checked });
+                } else {
+                    e.target.checked = this.autoDrawEnabled;
+                    alert('방장만 자동 타일 뽑기를 설정할 수 있습니다.');
+                }
+            }
+        });
     }
 
     showLobby() {
@@ -358,6 +386,12 @@ class StreamsOnlineGame {
             document.getElementById('drawTileBtn').style.display = 'inline-block';
         } else {
             document.getElementById('drawTileBtn').style.display = 'none';
+        }
+
+        // 호스트만 자동 타일 뽑기 체크박스 활성화
+        const autoDrawToggle = document.getElementById('autoDrawToggle');
+        if (autoDrawToggle) {
+            autoDrawToggle.disabled = !this.isHost && !this.isSoloMode;
         }
 
         document.getElementById('currentTurnCard').style.display = 'none';
@@ -572,6 +606,13 @@ class StreamsOnlineGame {
         this.myWorksheet = new Array(20).fill(null);
         this.currentTile = null;
         this.gameStarted = false;
+        this.autoDrawEnabled = false;
+
+        // 자동 타일 뽑기 체크박스 초기화
+        const autoDrawToggle = document.getElementById('autoDrawToggle');
+        if (autoDrawToggle) {
+            autoDrawToggle.checked = false;
+        }
 
         // 게임 화면 숨기고 로비 표시
         document.getElementById('gameScreen').style.display = 'none';
@@ -590,6 +631,13 @@ class StreamsOnlineGame {
         this.currentTile = null;
         this.tileBag = this.createTileBag();
         this.tilesDrawn = 0;
+        this.autoDrawEnabled = false;
+
+        // 자동 타일 뽑기 체크박스 초기화
+        const autoDrawToggle = document.getElementById('autoDrawToggle');
+        if (autoDrawToggle) {
+            autoDrawToggle.checked = false;
+        }
 
         // 플레이어 워크시트 초기화
         this.players[0].worksheet = new Array(20).fill(null);
@@ -736,6 +784,11 @@ class StreamsOnlineGame {
         // 게임 종료 체크
         if (this.tilesDrawn >= 20) {
             this.endGame();
+        } else if (this.autoDrawEnabled) {
+            // 자동 타일 뽑기가 활성화되어 있으면 자동으로 다음 타일 뽑기
+            setTimeout(() => {
+                this.drawTileSolo();
+            }, 500);
         }
     }
 }

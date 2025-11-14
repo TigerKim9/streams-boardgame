@@ -74,7 +74,8 @@ io.on('connection', (socket) => {
             tilesDrawn: 0,
             currentPlayerIndex: 0,
             gameStarted: false,
-            waitingForPlacements: []
+            waitingForPlacements: [],
+            autoDrawEnabled: false
         };
 
         rooms.set(roomCode, room);
@@ -249,6 +250,20 @@ io.on('connection', (socket) => {
             // 게임 종료 체크
             if (room.tilesDrawn >= 20) {
                 endGame(roomCode);
+            } else if (room.autoDrawEnabled && room.tiles.length > 0) {
+                // 자동 타일 뽑기가 활성화되어 있으면 자동으로 다음 타일 뽑기
+                setTimeout(() => {
+                    const tile = room.tiles.pop();
+                    room.currentTile = tile;
+                    room.waitingForPlacements = room.players.map(p => p.id);
+
+                    console.log(`방 ${roomCode}: 자동으로 타일 ${tile} 뽑음`);
+
+                    io.to(roomCode).emit('tileDrawn', {
+                        tile: tile,
+                        remainingTiles: 20 - room.tilesDrawn
+                    });
+                }, 500);
             }
         }
     });
@@ -290,6 +305,7 @@ io.on('connection', (socket) => {
         room.currentTile = null;
         room.tilesDrawn = 0;
         room.waitingForPlacements = [];
+        room.autoDrawEnabled = false;
 
         // 모든 플레이어의 워크시트와 점수 초기화
         room.players.forEach(player => {
@@ -301,6 +317,26 @@ io.on('connection', (socket) => {
         // 모든 플레이어에게 재시작 알림
         io.to(roomCode).emit('gameRestarted', {
             players: room.players
+        });
+    });
+
+    // 자동 타일 뽑기 토글
+    socket.on('toggleAutoDraw', ({ enabled }) => {
+        const roomCode = socket.roomCode;
+        const room = rooms.get(roomCode);
+
+        if (!room || room.host !== socket.id) {
+            socket.emit('error', '호스트만 자동 타일 뽑기를 설정할 수 있습니다.');
+            return;
+        }
+
+        room.autoDrawEnabled = enabled;
+
+        console.log(`방 ${roomCode} 자동 타일 뽑기: ${enabled ? '활성화' : '비활성화'}`);
+
+        // 모든 플레이어에게 자동 타일 뽑기 상태 알림
+        io.to(roomCode).emit('autoDrawToggled', {
+            enabled: enabled
         });
     });
 
