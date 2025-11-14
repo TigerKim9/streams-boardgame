@@ -61,7 +61,6 @@ function getRoomListData() {
             code: code,
             hostName: room.players[0]?.name || '알 수 없음',
             playerCount: room.players.length,
-            maxPlayers: 4,
             gameStarted: room.gameStarted
         });
     });
@@ -129,11 +128,6 @@ io.on('connection', (socket) => {
 
         if (room.gameStarted) {
             socket.emit('error', '이미 게임이 시작되었습니다.');
-            return;
-        }
-
-        if (room.players.length >= 4) {
-            socket.emit('error', '방이 가득 찼습니다.');
             return;
         }
 

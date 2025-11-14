@@ -769,10 +769,9 @@ class StreamsOnlineGame {
             const roomEl = document.createElement('div');
             roomEl.className = 'room-item';
 
-            // 참가 불가능한 방 표시 (게임 진행 중이거나 방이 꽉 찬 경우)
-            const isFull = room.playerCount >= room.maxPlayers;
+            // 참가 불가능한 방 표시 (게임 진행 중인 경우)
             const isPlaying = room.gameStarted;
-            const canJoin = !isFull && !isPlaying;
+            const canJoin = !isPlaying;
 
             if (!canJoin) {
                 roomEl.classList.add('disabled');
@@ -782,8 +781,6 @@ class StreamsOnlineGame {
             let statusBadge = '';
             if (isPlaying) {
                 statusBadge = '<span class="status-badge status-playing">진행 중</span>';
-            } else if (isFull) {
-                statusBadge = '<span class="status-badge status-full">정원 초과</span>';
             } else {
                 statusBadge = '<span class="status-badge status-waiting">대기 중</span>';
             }
@@ -791,7 +788,7 @@ class StreamsOnlineGame {
             roomEl.innerHTML = `
                 <div class="room-info">
                     <div class="room-code">${room.code}</div>
-                    <div class="room-details">호스트: ${room.hostName} | 플레이어: ${room.playerCount}/${room.maxPlayers}</div>
+                    <div class="room-details">호스트: ${room.hostName} | 플레이어: ${room.playerCount}명</div>
                 </div>
                 <div class="room-status">
                     ${statusBadge}
