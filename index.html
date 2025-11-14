@@ -23,12 +23,21 @@
                     <button id="soloPlayBtn" class="btn btn-primary">혼자 하기</button>
                     <button id="createRoomBtn" class="btn btn-primary">방 만들기</button>
                     <button id="joinRoomBtn" class="btn btn-secondary">방 참가하기</button>
+                    <button id="viewRoomListBtn" class="btn btn-secondary">방 목록 보기</button>
                 </div>
 
                 <div id="joinRoomForm" style="display: none;">
                     <input type="text" id="roomCodeInput" placeholder="방 코드 입력" maxlength="6">
                     <button id="joinRoomConfirmBtn" class="btn btn-primary">참가</button>
                     <button id="joinRoomCancelBtn" class="btn btn-secondary">취소</button>
+                </div>
+
+                <div id="roomListSection" style="display: none;">
+                    <h3>활성 방 목록</h3>
+                    <div id="roomListContent" class="room-list">
+                        <!-- 방 목록이 여기에 동적으로 생성됩니다 -->
+                    </div>
+                    <button id="closeRoomListBtn" class="btn btn-secondary">닫기</button>
                 </div>
             </div>
 

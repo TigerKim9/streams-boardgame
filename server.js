@@ -53,8 +53,33 @@ function createTileBag() {
     return tiles;
 }
 
+// 방 목록 정보 생성
+function getRoomListData() {
+    const roomList = [];
+    rooms.forEach((room, code) => {
+        roomList.push({
+            code: code,
+            hostName: room.players[0]?.name || '알 수 없음',
+            playerCount: room.players.length,
+            maxPlayers: 4,
+            gameStarted: room.gameStarted
+        });
+    });
+    return roomList;
+}
+
+// 모든 클라이언트에게 방 목록 업데이트 브로드캐스트
+function broadcastRoomList() {
+    io.emit('roomListUpdated', getRoomListData());
+}
+
 io.on('connection', (socket) => {
     console.log('✅ 새 플레이어 Socket.io 연결:', socket.id);
+
+    // 방 목록 요청
+    socket.on('getRoomList', () => {
+        socket.emit('roomListUpdated', getRoomListData());
+    });
 
     // 방 생성
     socket.on('createRoom', (playerName) => {
@@ -88,6 +113,9 @@ io.on('connection', (socket) => {
             players: room.players,
             isHost: true
         });
+
+        // 방 목록 업데이트 브로드캐스트
+        broadcastRoomList();
     });
 
     // 방 참가
@@ -135,6 +163,9 @@ io.on('connection', (socket) => {
             player: player,
             players: room.players
         });
+
+        // 방 목록 업데이트 브로드캐스트
+        broadcastRoomList();
     });
 
     // 게임 시작 (호스트만 가능)
@@ -155,6 +186,9 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('gameStarted', {
             players: room.players
         });
+
+        // 방 목록 업데이트 브로드캐스트 (게임 시작 상태 변경)
+        broadcastRoomList();
     });
 
     // 타일 뽑기 (호스트만 가능)
@@ -302,6 +336,9 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('gameRestarted', {
             players: room.players
         });
+
+        // 방 목록 업데이트 브로드캐스트 (게임 상태 변경)
+        broadcastRoomList();
     });
 
     // 연결 해제
@@ -326,6 +363,7 @@ io.on('connection', (socket) => {
         if (room.players.length === 0) {
             rooms.delete(roomCode);
             console.log(`방 ${roomCode} 삭제`);
+            broadcastRoomList(); // 방 목록 업데이트
             return;
         }
 
@@ -345,6 +383,9 @@ io.on('connection', (socket) => {
             players: room.players,
             newHost: room.host
         });
+
+        // 방 목록 업데이트 브로드캐스트
+        broadcastRoomList();
     });
 });
 

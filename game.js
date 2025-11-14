@@ -174,6 +174,11 @@ class StreamsOnlineGame {
         this.socket.on('error', (message) => {
             alert(message);
         });
+
+        // 방 목록 업데이트
+        this.socket.on('roomListUpdated', (roomList) => {
+            this.updateRoomList(roomList);
+        });
     }
 
     setupUIListeners() {
@@ -206,6 +211,18 @@ class StreamsOnlineGame {
         document.getElementById('joinRoomCancelBtn').addEventListener('click', () => {
             document.getElementById('joinRoomForm').style.display = 'none';
             document.getElementById('roomCodeInput').value = '';
+        });
+
+        // 방 목록 보기 버튼
+        document.getElementById('viewRoomListBtn').addEventListener('click', () => {
+            document.getElementById('roomListSection').style.display = 'block';
+            document.getElementById('joinRoomForm').style.display = 'none';
+            this.socket.emit('getRoomList');
+        });
+
+        // 방 목록 닫기 버튼
+        document.getElementById('closeRoomListBtn').addEventListener('click', () => {
+            document.getElementById('roomListSection').style.display = 'none';
         });
 
         // 방 참가 확인
@@ -737,6 +754,68 @@ class StreamsOnlineGame {
         if (this.tilesDrawn >= 20) {
             this.endGame();
         }
+    }
+
+    updateRoomList(roomList) {
+        const container = document.getElementById('roomListContent');
+        container.innerHTML = '';
+
+        if (roomList.length === 0) {
+            container.innerHTML = '<div class="room-list-empty">생성된 방이 없습니다</div>';
+            return;
+        }
+
+        roomList.forEach(room => {
+            const roomEl = document.createElement('div');
+            roomEl.className = 'room-item';
+
+            // 참가 불가능한 방 표시 (게임 진행 중이거나 방이 꽉 찬 경우)
+            const isFull = room.playerCount >= room.maxPlayers;
+            const isPlaying = room.gameStarted;
+            const canJoin = !isFull && !isPlaying;
+
+            if (!canJoin) {
+                roomEl.classList.add('disabled');
+            }
+
+            // 상태 뱃지
+            let statusBadge = '';
+            if (isPlaying) {
+                statusBadge = '<span class="status-badge status-playing">진행 중</span>';
+            } else if (isFull) {
+                statusBadge = '<span class="status-badge status-full">정원 초과</span>';
+            } else {
+                statusBadge = '<span class="status-badge status-waiting">대기 중</span>';
+            }
+
+            roomEl.innerHTML = `
+                <div class="room-info">
+                    <div class="room-code">${room.code}</div>
+                    <div class="room-details">호스트: ${room.hostName} | 플레이어: ${room.playerCount}/${room.maxPlayers}</div>
+                </div>
+                <div class="room-status">
+                    ${statusBadge}
+                </div>
+            `;
+
+            // 클릭 이벤트 (참가 가능한 방만)
+            if (canJoin) {
+                roomEl.addEventListener('click', () => {
+                    const playerName = document.getElementById('playerNameInput').value.trim();
+
+                    if (!playerName) {
+                        alert('플레이어 이름을 입력하세요!');
+                        return;
+                    }
+
+                    this.playerName = playerName;
+                    this.socket.emit('joinRoom', { roomCode: room.code, playerName });
+                    document.getElementById('roomListSection').style.display = 'none';
+                });
+            }
+
+            container.appendChild(roomEl);
+        });
     }
 }
 
